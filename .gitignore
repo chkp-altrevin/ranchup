@@ -1,0 +1,14 @@
+# logs and such
+*.log
+
+# privatefiles
+*env
+.env
+*.env
+
+#folders we create
+rancher_backup/
+rancher_data/
+
+#files we create
+initial-passwd
