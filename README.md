@@ -1,15 +1,8 @@
-Here’s a clean, attractive, and professional `README.md` for your **`ranchup`** repo. I’ve added structure, formatting, and visual clarity while maintaining your poetic flair:
-
----
-
-````markdown
 # 🐮 RanchUp: Simplified Rancher on Docker
 
 *Just another way to do what we do. Enjoy. 🙂*
 
 RanchUp is a lightweight shell-based lifecycle manager to automate your **Rancher on Docker** deployments. With support for install, upgrade, cleanup, rebuilds, and verification, it's your daily Rancher companion.
-
----
 
 ## 🚀 Quick Start
 
