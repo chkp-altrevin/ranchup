@@ -166,7 +166,7 @@ check_docker() {
     fi
     
     if ! docker info &>/dev/null; then
-        error_exit "Cannot connect to Docker daemon. Please check Docker permissions."
+        error_exit "Cannot connect to Docker daemon. Please log out/in or check Docker permissions."
     fi
 }
 
