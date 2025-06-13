@@ -1,5 +1,5 @@
-# rancher-magic
-rancher magic shell
+# Rancher Up!
+Just another way to do what we do. Enjoy :) 
 
 ```bash
 Install Usage:
