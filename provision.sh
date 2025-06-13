@@ -202,7 +202,7 @@ install_dependencies() {
     # Check if running as root (not recommended)
     [[ $EUID -eq 0 ]] && log "⚠️  Warning: Running as root is not recommended"
 
-    for tool in docker jq curl; do
+    for tool in docker.io jq curl; do
         if ! command -v "$tool" &>/dev/null; then
             log "📦 Installing missing dependency: $tool"
             if command -v apt-get &>/dev/null; then
