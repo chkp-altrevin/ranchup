@@ -1194,7 +1194,8 @@ check_docker() {
     fi
     
     if ! docker info &>/dev/null; then
-        error_exit "Cannot connect to Docker daemon. If 1st time Docker install log out/in and run again."
+        error_exit "Cannot connect to Docker daemon, most likely a new Docker install."
+        error_exit "Logout and log back in, arrow up and use --start or --kios to get started."
     fi
 }
 
