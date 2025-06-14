@@ -5,6 +5,7 @@
 RanchUp is a lightweight shell-based lifecycle manager to automate your **Rancher on Docker** deployments. With support for install, upgrade, cleanup, rebuilds, and verification, it's your daily Rancher companion.
 
 ## 🚀 Quick Start
+If you have docker installed it's ok, script will either verify, install with consent, a few dependencies by running the installer:
 
 ```bash
 ./provision.sh --install --start
@@ -15,6 +16,15 @@ This will:
 * Install Docker (if missing)
 * Pull Rancher (default: `rancher/rancher:stable`)
 * Start Rancher with sane defaults
+
+---
+
+## ☁️ Kiosk Mode
+Check it out. It's kinda like it says. If you like it enough, autostart it, automte it, lock it up for your flows and make Rancher magic.
+
+```bash
+./provision.sh --kiosk
+```
 
 ---
 
@@ -41,6 +51,7 @@ This will:
 
 | Flag                | Description                                                              |
 | ------------------- | ------------------------------------------------------------------------ |
+| `--kiosk`           | Kiosk type menu display, check it out                                    |
 | `--rancher-version` | Specify Rancher version (default: `rancher/rancher:stable`)              |
 | `--acme-domain`     | Domain name for Let's Encrypt SSL                                        |
 | `--volume-value`    | Custom `-v` volume value (default: `-v ./rancher-data:/var/lib/rancher`) |
