@@ -11,6 +11,7 @@ CONTAINER_NAME="rancher_server"
 FORCE_CLEANUP="false"
 OFFLINE_MODE="false"
 DRY_RUN="false"
+KIOSK_MODE="false"
 ACTION=""
 
 log() {
@@ -28,6 +29,7 @@ Usage: $0 [ACTION] [OPTIONS]
 
 Examples: ./rancher-provisioner.sh --install --start (Install dependencies, start Rancher)
           ./rancher-provisioner.sh --upgrade --rancher-version v2.11.2
+          ./rancher-provisioner.sh --kiosk (Interactive menu mode)
 
 Additional examples: --example
 
@@ -40,6 +42,7 @@ Actions (exactly one required):
   --verify                Check if Rancher is running
   --status                Show container status (running, stopped, or not found)
   --rebuild               Run cleanup, install, and start in sequence
+  --kiosk                 Launch interactive menu mode
 
 Options:
   --rancher-version X.Y.Z Override Rancher version (default: rancher/rancher:stable)
@@ -56,9 +59,396 @@ EOF
     exit 1
 }
 
+# Kiosk Mode Functions
+clear_screen() {
+    clear
+    echo "╔══════════════════════════════════════════════════════════════════════════════╗"
+    echo "║                          🐄 RANCHER LIFECYCLE MANAGER                       ║"
+    echo "╚══════════════════════════════════════════════════════════════════════════════╝"
+    echo ""
+}
+
+show_current_status() {
+    echo "📊 Current Status:"
+    echo "   Data Directory: $DATA_DIR"
+    echo "   Log File: $LOG_FILE"
+    echo "   Container Name: $CONTAINER_NAME"
+    if [[ -n "$RANCHER_VERSION" ]]; then
+        echo "   Rancher Version: $RANCHER_VERSION"
+    else
+        echo "   Rancher Version: (auto-detect latest)"
+    fi
+    
+    # Check container status
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        if container_running; then
+            echo "   Container Status: ✅ RUNNING"
+        elif container_exists; then
+            echo "   Container Status: 💤 STOPPED"
+        else
+            echo "   Container Status: ❌ NOT FOUND"
+        fi
+    else
+        echo "   Container Status: ⚠️  DOCKER NOT AVAILABLE"
+    fi
+    echo ""
+}
+
+kiosk_menu() {
+    while true; do
+        clear_screen
+        show_current_status
+        
+        echo "🎛️  Main Menu - Select an action:"
+        echo ""
+        echo "   1) 🛠️  Install Dependencies     - Prepare system for Rancher"
+        echo "   2) 🚀 Start Rancher            - Launch Rancher container"
+        echo "   3) 🔄 Install + Start          - Complete setup in one step"
+        echo "   4) 🛑 Stop Rancher             - Stop and remove container"
+        echo "   5) ♻️  Upgrade Rancher          - Update to newer version"
+        echo "   6) 🔁 Rebuild Everything       - Complete reinstall with backup"
+        echo "   7) 🔥 Cleanup All Data         - Remove all Rancher data"
+        echo "   8) 📊 Show Status              - Display detailed status"
+        echo "   9) 🔍 Verify Running           - Check if Rancher is operational"
+        echo "  10) ⚙️  Settings                - Configure options"
+        #echo "  11) 📖 Show Examples           - Display usage examples"
+        echo "   0) 🚪 Exit                     - Quit kiosk mode"
+        echo ""
+        echo -n "Enter your choice [0-11]: "
+        
+        local choice
+        read -r choice
+        
+        case "$choice" in
+            1)
+                echo ""
+                echo "🛠️  Installing dependencies..."
+                ACTION="install"
+                install_dependencies
+                kiosk_pause
+                ;;
+            2)
+                echo ""
+                echo "🚀 Starting Rancher..."
+                ACTION="start"
+                start_rancher
+                kiosk_pause
+                ;;
+            3)
+                echo ""
+                echo "🔄 Installing dependencies and starting Rancher..."
+                ACTION="install_and_start"
+                install_dependencies
+                start_rancher
+                kiosk_show_completion_info
+                kiosk_pause
+                ;;
+            4)
+                echo ""
+                echo "🛑 Stopping Rancher..."
+                ACTION="stop"
+                stop_rancher
+                kiosk_pause
+                ;;
+            5)
+                kiosk_upgrade_menu
+                ;;
+            6)
+                echo ""
+                echo "🔁 Rebuilding everything (this will backup existing data)..."
+                echo "⚠️  This will stop, backup, cleanup, and reinstall Rancher."
+                echo -n "Continue? [y/N]: "
+                local confirm
+                read -r confirm
+                if [[ "${confirm,,}" == "y" ]]; then
+                    ACTION="rebuild"
+                    rebuild_rancher
+                    kiosk_show_completion_info
+                fi
+                kiosk_pause
+                ;;
+            7)
+                kiosk_cleanup_menu
+                ;;
+            8)
+                echo ""
+                ACTION="status"
+                status_rancher
+                kiosk_pause
+                ;;
+            9)
+                echo ""
+                ACTION="verify"
+                if verify_running; then
+                    echo "✅ Rancher is running and accessible"
+                else
+                    echo "❌ Rancher is not running or not accessible"
+                fi
+                kiosk_pause
+                ;;
+            10)
+                kiosk_settings_menu
+                ;;
+            11)
+                clear_screen
+                show_examples
+                kiosk_pause
+                ;;
+            0)
+                echo ""
+                echo "👋 Exiting kiosk mode. Goodbye!"
+                exit 0
+                ;;
+            *)
+                echo ""
+                echo "❌ Invalid choice. Please select 0-11."
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+kiosk_upgrade_menu() {
+    clear_screen
+    echo "♻️  Upgrade Rancher"
+    echo ""
+    echo "Current version setting: ${RANCHER_VERSION:-(auto-detect latest)}"
+    echo ""
+    echo "1) Upgrade to latest stable"
+    echo "2) Specify version"
+    echo "3) Back to main menu"
+    echo ""
+    echo -n "Enter your choice [1-3]: "
+    
+    local choice
+    read -r choice
+    
+    case "$choice" in
+        1)
+            RANCHER_VERSION="stable"
+            echo ""
+            echo "♻️  Upgrading to latest stable version..."
+            ACTION="upgrade"
+            upgrade_rancher
+            kiosk_pause
+            ;;
+        2)
+            echo ""
+            echo -n "Enter Rancher version (e.g., v2.11.2): "
+            read -r version
+            if [[ -n "$version" ]]; then
+                RANCHER_VERSION="$version"
+                echo ""
+                echo "♻️  Upgrading to version $version..."
+                ACTION="upgrade"
+                upgrade_rancher
+                kiosk_pause
+            else
+                echo "❌ Version cannot be empty"
+                sleep 2
+            fi
+            ;;
+        3)
+            return
+            ;;
+        *)
+            echo "❌ Invalid choice"
+            sleep 2
+            ;;
+    esac
+}
+
+kiosk_cleanup_menu() {
+    clear_screen
+    echo "🔥 Cleanup Rancher Data"
+    echo ""
+    echo "⚠️  WARNING: This will permanently delete all Rancher data!"
+    echo "   Data directory: $DATA_DIR"
+    echo ""
+    echo "1) Cleanup with backup"
+    echo "2) Force cleanup (no backup)"
+    echo "3) Back to main menu"
+    echo ""
+    echo -n "Enter your choice [1-3]: "
+    
+    local choice
+    read -r choice
+    
+    case "$choice" in
+        1)
+            echo ""
+            echo "🔥 Cleaning up with backup..."
+            FORCE_CLEANUP="false"
+            ACTION="cleanup"
+            cleanup_rancher
+            kiosk_pause
+            ;;
+        2)
+            echo ""
+            echo "⚠️  Are you ABSOLUTELY sure? This cannot be undone!"
+            echo -n "Type 'YES' to confirm: "
+            local confirm
+            read -r confirm
+            if [[ "$confirm" == "YES" ]]; then
+                echo ""
+                echo "🔥 Force cleaning up..."
+                FORCE_CLEANUP="true"
+                ACTION="cleanup"
+                cleanup_rancher
+                FORCE_CLEANUP="false" # Reset to default
+            else
+                echo "❌ Cleanup cancelled"
+                sleep 2
+            fi
+            kiosk_pause
+            ;;
+        3)
+            return
+            ;;
+        *)
+            echo "❌ Invalid choice"
+            sleep 2
+            ;;
+    esac
+}
+
+kiosk_settings_menu() {
+    while true; do
+        clear_screen
+        echo "⚙️  Settings Configuration"
+        echo ""
+        echo "Current Settings:"
+        echo "  1) Data Directory: $DATA_DIR"
+        echo "  2) Log File: $LOG_FILE"
+        echo "  3) Rancher Version: ${RANCHER_VERSION:-(auto-detect latest)}"
+        echo "  4) ACME Domain: ${ACME_DOMAIN:-(none)}"
+        echo "  5) Volume Value: ${VOLUME_VALUE:-(default)}"
+        echo "  6) Dry Run Mode: $DRY_RUN"
+        echo ""
+        echo "  7) Reset to defaults"
+        echo "  0) Back to main menu"
+        echo ""
+        echo -n "Enter setting to change [0-7]: "
+        
+        local choice
+        read -r choice
+        
+        case "$choice" in
+            1)
+                echo ""
+                echo -n "Enter new data directory [$DATA_DIR]: "
+                local new_dir
+                read -r new_dir
+                if [[ -n "$new_dir" ]]; then
+                    DATA_DIR="$new_dir"
+                    echo "✅ Data directory updated to: $DATA_DIR"
+                    sleep 2
+                fi
+                ;;
+            2)
+                echo ""
+                echo -n "Enter new log file path [$LOG_FILE]: "
+                local new_log
+                read -r new_log
+                if [[ -n "$new_log" ]]; then
+                    LOG_FILE="$new_log"
+                    echo "✅ Log file updated to: $LOG_FILE"
+                    sleep 2
+                fi
+                ;;
+            3)
+                echo ""
+                echo -n "Enter Rancher version (empty for auto-detect): "
+                local new_version
+                read -r new_version
+                RANCHER_VERSION="$new_version"
+                echo "✅ Rancher version updated to: ${RANCHER_VERSION:-(auto-detect)}"
+                sleep 2
+                ;;
+            4)
+                echo ""
+                echo -n "Enter ACME domain (empty to disable): "
+                local new_domain
+                read -r new_domain
+                ACME_DOMAIN="$new_domain"
+                echo "✅ ACME domain updated to: ${ACME_DOMAIN:-(disabled)}"
+                sleep 2
+                ;;
+            5)
+                echo ""
+                echo -n "Enter volume value (empty for default): "
+                local new_volume
+                read -r new_volume
+                VOLUME_VALUE="$new_volume"
+                echo "✅ Volume value updated to: ${VOLUME_VALUE:-(default)}"
+                sleep 2
+                ;;
+            6)
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    DRY_RUN="false"
+                    echo "✅ Dry run mode disabled"
+                else
+                    DRY_RUN="true"
+                    echo "✅ Dry run mode enabled"
+                fi
+                sleep 2
+                ;;
+            7)
+                DATA_DIR="$(pwd)/rancher-data"
+                LOG_FILE="rancher-lifecycle.log"
+                RANCHER_VERSION=""
+                ACME_DOMAIN=""
+                VOLUME_VALUE=""
+                DRY_RUN="false"
+                echo "✅ Settings reset to defaults"
+                sleep 2
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo "❌ Invalid choice"
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+kiosk_show_completion_info() {
+    if [[ "$DRY_RUN" == "false" ]]; then
+        echo ""
+        echo "🎉 Operation completed successfully!"
+        
+        # Try to get the password
+        local password=""
+        if [[ -f "initial-passwd" ]]; then
+            password=$(grep "Bootstrap Password:" initial-passwd 2>/dev/null | cut -d' ' -f3- | tr -d '\r\n' || echo "")
+        fi
+        
+        if [[ -z "$password" ]] && container_exists; then
+            password=$(docker logs "$CONTAINER_NAME" 2>&1 | grep "Bootstrap Password:" | tail -1 | cut -d' ' -f3- | tr -d '\r\n' 2>/dev/null || echo "")
+        fi
+        
+        if [[ -n "$password" ]]; then
+            echo "🔑 Bootstrap password: $password"
+        fi
+        
+        echo "🌐 Access Rancher UI at: https://$(hostname -I | awk '{print $1}') or https://your-domain"
+        echo ""
+    fi
+}
+
+kiosk_pause() {
+    echo ""
+    echo -n "Press Enter to continue..."
+    read -r
+}
+
 validate_args() {
-    # Check if an action was specified
-    [[ -z "$ACTION" ]] && error_exit "No action specified. Use --help for usage information."
+    # Check if an action was specified (skip for kiosk mode)
+    if [[ "$KIOSK_MODE" != "true" ]] && [[ -z "$ACTION" ]]; then
+        error_exit "No action specified. Use --help for usage information."
+    fi
     
     # Validate data directory path (create parent if needed)
     if [[ -n "$DATA_DIR" ]]; then
@@ -106,6 +496,7 @@ parse_args() {
             --verify) actions+=("verify"); shift ;;
             --status) actions+=("status"); shift ;;
             --rebuild) actions+=("rebuild"); shift ;;
+            --kiosk) KIOSK_MODE="true"; shift ;;
             --rancher-version) 
                 [[ -z "${2:-}" ]] && error_exit "--rancher-version requires a value"
                 RANCHER_VERSION="$2"; shift 2 ;;
@@ -131,6 +522,12 @@ parse_args() {
             *) error_exit "Unexpected argument: $1. Use --help for usage information." ;;
         esac
     done
+    
+    # Handle kiosk mode early
+    if [[ "$KIOSK_MODE" == "true" ]]; then
+        validate_args
+        return
+    fi
     
     # Handle multiple actions (some combinations are valid)
     if [[ ${#actions[@]} -eq 0 ]]; then
@@ -601,6 +998,9 @@ show_examples() {
   ./$(basename "$0") --status
   ./$(basename "$0") --verify
 
+🎛️ Interactive kiosk mode:
+  ./$(basename "$0") --kiosk
+
 EOF
     exit 0
 }
@@ -608,6 +1008,12 @@ EOF
 main() {
     # Parse arguments first
     parse_args "$@"
+    
+    # Handle kiosk mode
+    if [[ "$KIOSK_MODE" == "true" ]]; then
+        kiosk_menu
+        exit 0
+    fi
     
     # Initialize logging (create log directory if needed, but skip if it's current directory)
     local log_dir
