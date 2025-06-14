@@ -25,10 +25,57 @@ Check it out. It's kinda like it says. If you like it enough, autostart it, auto
 ```bash
 ./provision.sh --kiosk
 ```
+## 🔍 **Log Viewer Features:**
+
+### **📄 Log Display Options:**
+1. **Recent Logs** - Last 50 lines for quick overview
+2. **Problem Events Only** - Filters for errors, warnings, failures (great for troubleshooting!)
+3. **Show All Logs** - Complete container history
+4. **Debug Mode** - Container details + timestamped logs
+5. **Auto-Refresh** - Live monitoring with multiple modes
+6. **Save to File** - Export logs for analysis
+
+### **🔄 Auto-Refresh Modes:**
+- **Recent logs** (refreshes every 5 seconds)
+- **Problem events** (refreshes every 10 seconds) 
+- **Live tail** (real-time streaming)
+- All with **Ctrl+C** to stop gracefully
+
+### **💾 Save Options:**
+- Recent logs (last 100 lines)
+- Complete log history
+- Problem events only
+- Full debug dump (container inspect + logs)
+- Auto-generated timestamped filenames
+
+### **🐛 Debug Mode Includes:**
+- Container details (image, status, ports, mounts)
+- Recent timestamped logs
+- Complete container inspection data
+
+## 🎯 **Key Benefits:**
+
+**For Troubleshooting:**
+- Quick problem detection with filtered error/warning view
+- Debug mode shows container configuration issues
+- Save logs for sharing with support teams
+
+**For Monitoring:**
+- Live tail for real-time monitoring during deployments
+- Auto-refresh for hands-off monitoring
+- Problem-only view to catch issues immediately
+
+**For Documentation:**
+- Save logs with timestamps and metadata
+- Multiple export formats for different use cases
+
+The log viewer automatically checks if the container exists and provides guidance.
+This should make debugging and monitoring your Rancher deployments much more effective! 🚀
 
 ---
 
-## 🛠️ Actions
+
+## 🛠️ Manual Mode
 
 ```bash
 ./provision.sh [action] [options]
