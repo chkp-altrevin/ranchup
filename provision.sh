@@ -930,8 +930,13 @@ install_dependencies() {
                 run_or_echo "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc"
                 run_or_echo "sudo chmod a+r /etc/apt/keyrings/docker.asc"
                 
-                # Add Docker repository
-                run_or_echo 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null'
+                # Add Docker repository (split into multiple lines to avoid syntax issues)
+                local repo_line='deb [arch='
+                repo_line+='$(dpkg --print-architecture)'
+                repo_line+=' signed-by=/etc/apt/keyrings/docker.asc] '
+                repo_line+='https://download.docker.com/linux/ubuntu '
+                repo_line+='$(. /etc/os-release && echo "$VERSION_CODENAME") stable'
+                run_or_echo "echo \"$repo_line\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null"
                 
                 # Update package index and install Docker
                 run_or_echo "sudo apt-get update"
@@ -944,9 +949,6 @@ install_dependencies() {
         else
             error_exit "Package manager not found. Please install Docker manually."
         fi
-    else
-        log "✅ Docker is already installed."
-    fi
     else
         log "✅ Docker is already installed."
     fi
