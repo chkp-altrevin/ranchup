@@ -63,7 +63,7 @@ EOF
 clear_screen() {
     clear
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
-    echo "║                          🐄 RANCHER LIFECYCLE MANAGER                       ║"
+    echo "║                           🐄 RANCHER LIFECYCLE MANAGER                      ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
     echo ""
 }
@@ -110,11 +110,12 @@ kiosk_menu() {
         echo "   7) 🔥 Cleanup All Data         - Remove all Rancher data"
         echo "   8) 📊 Show Status              - Display detailed status"
         echo "   9) 🔍 Verify Running           - Check if Rancher is operational"
-        echo "  10) ⚙️  Settings                - Configure options"
-        #echo "  11) 📖 Show Examples           - Display usage examples"
+        echo "  10) 📋 View Logs               - Monitor container logs"
+        echo "  11) ⚙️  Settings                - Configure options"
+        # echo "  12) 📖 Show Examples           - Display usage examples"
         echo "   0) 🚪 Exit                     - Quit kiosk mode"
         echo ""
-        echo -n "Enter your choice [0-11]: "
+        echo -n "Enter your choice [0-12]: "
         
         local choice
         read -r choice
@@ -187,9 +188,12 @@ kiosk_menu() {
                 kiosk_pause
                 ;;
             10)
-                kiosk_settings_menu
+                kiosk_logs_menu
                 ;;
             11)
+                kiosk_settings_menu
+                ;;
+            12)
                 clear_screen
                 show_examples
                 kiosk_pause
@@ -201,7 +205,7 @@ kiosk_menu() {
                 ;;
             *)
                 echo ""
-                echo "❌ Invalid choice. Please select 0-11."
+                echo "❌ Invalid choice. Please select 0-12."
                 sleep 2
                 ;;
         esac
@@ -310,6 +314,292 @@ kiosk_cleanup_menu() {
             sleep 2
             ;;
     esac
+}
+
+kiosk_logs_menu() {
+    while true; do
+        clear_screen
+        echo "📋 Container Logs Viewer"
+        echo ""
+        
+        # Check if container exists
+        if ! container_exists; then
+            echo "❌ Rancher container '$CONTAINER_NAME' does not exist."
+            echo "   Please install and start Rancher first."
+            echo ""
+            echo "Press Enter to return to main menu..."
+            read -r
+            return
+        fi
+        
+        echo "Log Viewing Options:"
+        echo ""
+        echo "  1) 📄 Show Recent Logs (last 50 lines)"
+        echo "  2) 🔍 Show Problem Events Only (errors/warnings)"
+        echo "  3) 📜 Show All Logs"
+        echo "  4) 🐛 Debug Mode (detailed logging)"
+        echo "  5) 🔄 Auto-Refresh Logs (live tail)"
+        echo "  6) 💾 Save Logs to File"
+        echo "  0) ⬅️  Back to Main Menu"
+        echo ""
+        echo -n "Enter your choice [0-6]: "
+        
+        local choice
+        read -r choice
+        
+        case "$choice" in
+            1)
+                kiosk_show_logs "recent"
+                ;;
+            2)
+                kiosk_show_logs "problems"
+                ;;
+            3)
+                kiosk_show_logs "all"
+                ;;
+            4)
+                kiosk_show_logs "debug"
+                ;;
+            5)
+                kiosk_auto_refresh_logs
+                ;;
+            6)
+                kiosk_save_logs
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo ""
+                echo "❌ Invalid choice. Please select 0-6."
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+kiosk_show_logs() {
+    local log_type="$1"
+    clear_screen
+    
+    case "$log_type" in
+        "recent")
+            echo "📄 Recent Logs (last 50 lines):"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            docker logs --tail 50 "$CONTAINER_NAME" 2>&1 || echo "❌ Failed to retrieve logs"
+            ;;
+        "problems")
+            echo "🔍 Problem Events (Errors & Warnings):"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            docker logs "$CONTAINER_NAME" 2>&1 | grep -iE "(error|warn|fail|exception|panic|fatal)" | tail -30 || echo "✅ No recent problems found"
+            ;;
+        "all")
+            echo "📜 All Container Logs:"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            echo "⚠️  This may be very long. Press Ctrl+C to stop if needed."
+            echo ""
+            sleep 2
+            docker logs "$CONTAINER_NAME" 2>&1 || echo "❌ Failed to retrieve logs"
+            ;;
+        "debug")
+            echo "🐛 Debug Mode - Detailed Container Information:"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            echo ""
+            echo "📊 Container Details:"
+            docker inspect "$CONTAINER_NAME" --format '
+🏷️  Name: {{.Name}}
+🖼️  Image: {{.Config.Image}}
+🔄 Status: {{.State.Status}}
+⏰ Created: {{.Created}}
+🚀 Started: {{.State.StartedAt}}
+🔌 Ports: {{range $p, $conf := .NetworkSettings.Ports}}{{$p}} -> {{(index $conf 0).HostPort}} {{end}}
+💾 Mounts: {{range .Mounts}}{{.Source}} -> {{.Destination}} {{end}}' 2>/dev/null || echo "❌ Failed to retrieve container details"
+            
+            echo ""
+            echo "📋 Recent Logs with Timestamps:"
+            echo "───────────────────────────────────────────────────────────────────────────────"
+            docker logs --timestamps --tail 20 "$CONTAINER_NAME" 2>&1 || echo "❌ Failed to retrieve logs"
+            ;;
+    esac
+    
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    kiosk_pause
+}
+
+kiosk_auto_refresh_logs() {
+    clear_screen
+    echo "🔄 Auto-Refresh Logs (Live Tail)"
+    echo ""
+    echo "Options:"
+    echo "  1) Recent logs (last 20 lines, refresh every 5 seconds)"
+    echo "  2) Problem events only (refresh every 10 seconds)"
+    echo "  3) Live tail (real-time streaming)"
+    echo "  0) Back to logs menu"
+    echo ""
+    echo -n "Enter your choice [0-3]: "
+    
+    local choice
+    read -r choice
+    
+    case "$choice" in
+        1)
+            clear_screen
+            echo "🔄 Auto-Refreshing Recent Logs (Press Ctrl+C to stop)"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            echo ""
+            
+            trap 'echo ""; echo "⏹️  Auto-refresh stopped."; sleep 2; return' INT
+            while true; do
+                echo -e "\033[2J\033[H" # Clear screen and move cursor to top
+                echo "🔄 Auto-Refreshing Recent Logs - $(date) (Press Ctrl+C to stop)"
+                echo "═══════════════════════════════════════════════════════════════════════════════"
+                docker logs --tail 20 --timestamps "$CONTAINER_NAME" 2>&1 | tail -15 || echo "❌ Failed to retrieve logs"
+                echo ""
+                echo "Next refresh in 5 seconds..."
+                sleep 5
+            done
+            ;;
+        2)
+            clear_screen
+            echo "🔍 Auto-Refreshing Problem Events (Press Ctrl+C to stop)"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            echo ""
+            
+            trap 'echo ""; echo "⏹️  Auto-refresh stopped."; sleep 2; return' INT
+            while true; do
+                echo -e "\033[2J\033[H" # Clear screen and move cursor to top
+                echo "🔍 Auto-Refreshing Problem Events - $(date) (Press Ctrl+C to stop)"
+                echo "═══════════════════════════════════════════════════════════════════════════════"
+                local problems
+                problems=$(docker logs "$CONTAINER_NAME" 2>&1 | grep -iE "(error|warn|fail|exception|panic|fatal)" | tail -10)
+                if [[ -n "$problems" ]]; then
+                    echo "$problems"
+                else
+                    echo "✅ No recent problems detected"
+                fi
+                echo ""
+                echo "Next refresh in 10 seconds..."
+                sleep 10
+            done
+            ;;
+        3)
+            clear_screen
+            echo "📡 Live Log Streaming (Press Ctrl+C to stop)"
+            echo "═══════════════════════════════════════════════════════════════════════════════"
+            echo ""
+            trap 'echo ""; echo "⏹️  Live stream stopped."; sleep 2; return' INT
+            docker logs -f --tail 10 "$CONTAINER_NAME" 2>&1
+            ;;
+        0)
+            return
+            ;;
+        *)
+            echo "❌ Invalid choice"
+            sleep 2
+            ;;
+    esac
+    
+    trap - INT # Reset trap
+}
+
+kiosk_save_logs() {
+    clear_screen
+    echo "💾 Save Logs to File"
+    echo ""
+    
+    local timestamp
+    timestamp=$(date +'%Y%m%d-%H%M%S')
+    local default_filename="rancher_logs_${timestamp}.txt"
+    
+    echo "Save options:"
+    echo "  1) Save recent logs (last 100 lines)"
+    echo "  2) Save all logs"
+    echo "  3) Save problem events only"
+    echo "  4) Save debug information"
+    echo "  0) Cancel"
+    echo ""
+    echo -n "Enter your choice [0-4]: "
+    
+    local choice
+    read -r choice
+    
+    if [[ "$choice" == "0" ]]; then
+        return
+    fi
+    
+    echo ""
+    echo -n "Enter filename [$default_filename]: "
+    local filename
+    read -r filename
+    filename="${filename:-$default_filename}"
+    
+    echo ""
+    echo "💾 Saving logs to: $filename"
+    
+    case "$choice" in
+        1)
+            {
+                echo "# Rancher Container Logs - Recent (Last 100 lines)"
+                echo "# Generated: $(date)"
+                echo "# Container: $CONTAINER_NAME"
+                echo "# ═══════════════════════════════════════════════════════════════════════════════"
+                echo ""
+                docker logs --tail 100 --timestamps "$CONTAINER_NAME" 2>&1
+            } > "$filename"
+            ;;
+        2)
+            {
+                echo "# Rancher Container Logs - Complete"
+                echo "# Generated: $(date)"
+                echo "# Container: $CONTAINER_NAME"
+                echo "# ═══════════════════════════════════════════════════════════════════════════════"
+                echo ""
+                docker logs --timestamps "$CONTAINER_NAME" 2>&1
+            } > "$filename"
+            ;;
+        3)
+            {
+                echo "# Rancher Container Logs - Problem Events Only"
+                echo "# Generated: $(date)"
+                echo "# Container: $CONTAINER_NAME"
+                echo "# ═══════════════════════════════════════════════════════════════════════════════"
+                echo ""
+                docker logs --timestamps "$CONTAINER_NAME" 2>&1 | grep -iE "(error|warn|fail|exception|panic|fatal)"
+            } > "$filename"
+            ;;
+        4)
+            {
+                echo "# Rancher Container Debug Information"
+                echo "# Generated: $(date)"
+                echo "# Container: $CONTAINER_NAME"
+                echo "# ═══════════════════════════════════════════════════════════════════════════════"
+                echo ""
+                echo "## Container Inspection:"
+                docker inspect "$CONTAINER_NAME" 2>/dev/null
+                echo ""
+                echo "## Container Logs:"
+                docker logs --timestamps "$CONTAINER_NAME" 2>&1
+            } > "$filename"
+            ;;
+        *)
+            echo "❌ Invalid choice"
+            sleep 2
+            return
+            ;;
+    esac
+    
+    if [[ -f "$filename" ]]; then
+        local file_size
+        file_size=$(du -h "$filename" | cut -f1)
+        echo "✅ Logs saved successfully!"
+        echo "   File: $filename"
+        echo "   Size: $file_size"
+    else
+        echo "❌ Failed to save logs"
+    fi
+    
+    kiosk_pause
 }
 
 kiosk_settings_menu() {
