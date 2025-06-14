@@ -110,7 +110,7 @@ kiosk_menu() {
         echo "   7) 🔥 Cleanup All Data         - Remove all Rancher data"
         echo "   8) 📊 Show Status              - Display detailed status"
         echo "   9) 🔍 Verify Running           - Check if Rancher is operational"
-        echo "  10) 📋 View Logs               - Monitor container logs"
+        echo "  10) 📋 View Logs                - Monitor container logs"
         echo "  11) ⚙️  Settings                - Configure options"
         # echo "  12) 📖 Show Examples           - Display usage examples"
         echo "   0) 🚪 Exit                     - Quit kiosk mode"
