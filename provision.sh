@@ -131,13 +131,7 @@ kiosk_menu() {
                 kiosk_pause
                 ;;
             3)
-                echo ""
-                echo "🔄 Installing dependencies and starting Rancher..."
-                ACTION="install_and_start"
-                install_dependencies
-                start_rancher
-                kiosk_show_completion_info
-                kiosk_pause
+                kiosk_smart_install_and_start
                 ;;
             4)
                 echo ""
@@ -399,6 +393,166 @@ kiosk_smart_install() {
     fi
 }
 
+kiosk_smart_install_and_start() {
+    clear_screen
+    echo "🔄 Smart Install + Start - Complete Setup"
+    echo ""
+    
+    # Check if container already exists
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1 && container_exists; then
+        if container_running; then
+            echo "✅ Rancher container '$CONTAINER_NAME' is already running!"
+            echo ""
+            echo "📊 Current Status:"
+            local container_info
+            container_info=$(docker inspect "$CONTAINER_NAME" --format '{{.Config.Image}} | {{.State.StartedAt}}' 2>/dev/null || echo "N/A")
+            echo "   Image: $(echo "$container_info" | cut -d'|' -f1)"
+            echo "   Started: $(echo "$container_info" | cut -d'|' -f2)"
+            echo ""
+            echo "🎯 Rancher is already up and running! What would you like to do?"
+            echo ""
+            echo "  1) 📊 Show detailed status"
+            echo "  2) 📋 View container logs"
+            echo "  3) ♻️  Upgrade to newer version"
+            echo "  4) 🔁 Rebuild everything (fresh install)"
+            echo "  0) ⬅️  Back to main menu"
+            echo ""
+            echo -n "Enter your choice [0-4]: "
+            
+            local choice
+            read -r choice
+            
+            case "$choice" in
+                1)
+                    echo ""
+                    ACTION="status"
+                    status_rancher
+                    kiosk_pause
+                    ;;
+                2)
+                    kiosk_logs_menu
+                    ;;
+                3)
+                    kiosk_upgrade_menu
+                    ;;
+                4)
+                    echo ""
+                    echo "🔁 This will backup existing data and do a fresh install."
+                    echo -n "Continue? [y/N]: "
+                    local confirm
+                    read -r confirm
+                    if [[ "${confirm,,}" == "y" ]]; then
+                        ACTION="rebuild"
+                        rebuild_rancher
+                        kiosk_show_completion_info
+                        kiosk_pause
+                    fi
+                    ;;
+                0)
+                    return
+                    ;;
+                *)
+                    echo "❌ Invalid choice"
+                    sleep 2
+                    ;;
+            esac
+        else
+            echo "💤 Rancher container '$CONTAINER_NAME' exists but is stopped."
+            echo ""
+            echo "🎯 What would you like to do?"
+            echo ""
+            echo "  1) 🚀 Start the existing container"
+            echo "  2) ♻️  Upgrade and start with newer version"
+            echo "  3) 🔁 Rebuild everything (fresh install + start)"
+            echo "  0) ⬅️  Back to main menu"
+            echo ""
+            echo -n "Enter your choice [0-3]: "
+            
+            local choice
+            read -r choice
+            
+            case "$choice" in
+                1)
+                    echo ""
+                    echo "🚀 Starting existing Rancher container..."
+                    ACTION="start"
+                    start_rancher
+                    kiosk_show_completion_info
+                    kiosk_pause
+                    ;;
+                2)
+                    kiosk_upgrade_menu
+                    ;;
+                3)
+                    echo ""
+                    echo "🔁 This will backup existing data and do a fresh install."
+                    echo -n "Continue? [y/N]: "
+                    local confirm
+                    read -r confirm
+                    if [[ "${confirm,,}" == "y" ]]; then
+                        ACTION="rebuild"
+                        rebuild_rancher
+                        kiosk_show_completion_info
+                        kiosk_pause
+                    fi
+                    ;;
+                0)
+                    return
+                    ;;
+                *)
+                    echo "❌ Invalid choice"
+                    sleep 2
+                    ;;
+            esac
+        fi
+    else
+        # No existing container, proceed with normal install + start
+        echo "📦 No existing Rancher container found. Proceeding with complete setup..."
+        echo ""
+        
+        # Check if Docker is installed
+        if ! command -v docker &>/dev/null; then
+            echo "🐳 Docker not found - will be installed as part of dependencies"
+        else
+            echo "✅ Docker is already installed"
+        fi
+        
+        # Check other dependencies
+        local missing_deps=()
+        for tool in jq curl; do
+            if ! command -v "$tool" &>/dev/null; then
+                missing_deps+=("$tool")
+            fi
+        done
+        
+        if [[ ${#missing_deps[@]} -gt 0 ]]; then
+            echo "📦 Missing dependencies that will be installed: ${missing_deps[*]}"
+        else
+            echo "✅ All basic dependencies are already installed"
+        fi
+        
+        echo ""
+        echo "🚀 Ready to install dependencies and start Rancher!"
+        echo -n "Continue with complete setup? [Y/n]: "
+        
+        local choice
+        read -r choice
+        choice=${choice:-y}  # Default to 'y' if empty
+        
+        if [[ "${choice,,}" == "y" ]]; then
+            echo ""
+            echo "🔄 Installing dependencies and starting Rancher..."
+            ACTION="install_and_start"
+            install_dependencies
+            start_rancher
+            kiosk_show_completion_info
+            kiosk_pause
+        else
+            echo "❌ Setup cancelled"
+            sleep 2
+        fi
+    fi
+}
 kiosk_upgrade_menu() {
     clear_screen
     echo "♻️  Upgrade Rancher"
