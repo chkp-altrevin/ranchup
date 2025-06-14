@@ -888,7 +888,8 @@ install_dependencies() {
     # Check if running as root (not recommended)
     [[ $EUID -eq 0 ]] && log "⚠️  Warning: Running as root is not recommended"
 
-    for tool in docker.io jq curl; do
+    # Install non-Docker dependencies first
+    for tool in jq curl; do
         if ! command -v "$tool" &>/dev/null; then
             log "📦 Installing missing dependency: $tool"
             if command -v apt-get &>/dev/null; then
@@ -904,6 +905,28 @@ install_dependencies() {
             log "✅ $tool is already installed."
         fi
     done
+
+    # Handle Docker installation separately
+    if ! command -v docker &>/dev/null; then
+        log "📦 Installing Docker from official repository..."
+        if command -v apt-get &>/dev/null; then
+            # Remove any conflicting packages first
+            run_or_echo "sudo apt-get remove -y containerd containerd.io docker docker-engine docker.io runc || true"
+            run_or_echo "sudo apt-get autoremove -y || true"
+            
+            # Install Docker CE from official repository
+            run_or_echo "sudo apt-get update"
+            run_or_echo "sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+        elif command -v yum &>/dev/null; then
+            run_or_echo "sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+        elif command -v dnf &>/dev/null; then
+            run_or_echo "sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+        else
+            error_exit "Package manager not found. Please install Docker manually."
+        fi
+    else
+        log "✅ Docker is already installed."
+    fi
 
     # Start and enable Docker service
     if ! systemctl is-active --quiet docker; then
