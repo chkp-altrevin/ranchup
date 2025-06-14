@@ -20,7 +20,7 @@ This will:
 ---
 
 ## ☁️ Kiosk Mode
-Check it out. It's kinda like it says. If you like it enough, autostart it, automte it, lock it up for your flows and make Rancher magic.
+Check it out. It's kinda like it says. If you like it enough, autostart it, automate it, auto lock it up for your flows and make Rancher magic.
 
 ```bash
 ./provision.sh --kiosk
