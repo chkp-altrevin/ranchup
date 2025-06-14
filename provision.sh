@@ -1060,7 +1060,7 @@ start_rancher() {
 
     if [[ "$DRY_RUN" == "false" ]]; then
         log "⏱  Waiting for Rancher to bootstrap..."
-        sleep 60
+        sleep 80
 
         # Save bootstrap password if it exists
         if [[ ! -e "$DATA_DIR/k3s" ]]; then
@@ -1389,6 +1389,7 @@ main() {
                 fi
                 
                 log "🌐 Access Rancher UI at: https://$(hostname -I | awk '{print $1}') or https://your-domain"
+                log "✅ Run ./provision.sh --kiosk to monitor and manage your Rancher configuration"
                 log ""
             fi
             ;;
