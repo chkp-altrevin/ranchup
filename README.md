@@ -5,7 +5,7 @@
 RanchUp is a lightweight shell-based lifecycle manager to automate your **Rancher on Docker** deployments. With support for install, upgrade, cleanup, rebuilds, and verification, it's your daily Rancher companion.
 
 ## 🚀 Quick Start
-If you have docker installed it's ok, script will either verify, install with consent, a few dependencies by running the installer:
+If you have docker installed it's ok, script verify, install with consent:
 
 ```bash
 ./provision.sh --install --start
