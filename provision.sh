@@ -1223,7 +1223,7 @@ install_dependencies() {
             log "   To upgrade existing container: ./$(basename "$0") --upgrade --rancher-version X.Y.Z"
             log "   To rebuild from scratch: ./$(basename "$0") --cleanup --force && ./$(basename "$0") --install --start"
             log "   Or use: ./$(basename "$0") --rebuild"
-            error_exit "Container already exists. Use --start, --upgrade, --cleanup, or --rebuild instead of --install"
+            error_exit "Container already exists. --install is not allowed. Use --kiosk or --help for more info"
         fi
     fi
 
