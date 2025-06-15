@@ -7,11 +7,12 @@ RanchUp is a lightweight shell-based lifecycle manager to automate your **Ranche
 ## 🚀 Quick Start
 If you have docker installed it's ok, script will verify and install with consent. If you do not have docker installed it is recommended to run `--install` first, and then run `--install --start` to avoid docker and user permission issues. Both options are listed below:
 
-- Docker already installed, this one is a great option:
+- if Docker already installed, this one is a great option:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install --start
 ```
-- No Docker, this one is for you. Copy & paste below. After it finishes arrow up, (add --start to the end) and re-run.
+- if No Docker, this one is for you. Copy & paste below. After it finishes arrow up, (add --start to the end) and re-run. Why? Installing Docker first time while adding your user to the Docker Group will require a login and logout ;)
+- 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install
 ```
