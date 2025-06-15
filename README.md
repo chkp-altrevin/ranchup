@@ -5,16 +5,17 @@
 RanchUp is a lightweight shell-based lifecycle manager to automate your **Rancher on Docker** deployments. With support for install, upgrade, cleanup, rebuilds, and verification, it's your daily Rancher companion.
 
 ## 🚀 Quick Start
-If you have docker installed it's ok, script will verify and install with consent. If you do not have docker installed it is recommended to run `--install` first, and then run `--install --start` to avoid docker and user permission issues. Both options are listed below:
+If you don't have docker installed or even if you do have docker installed it's ok, script will verify and install with consent. Keep in mind, if you do not have docker installed a logout/login are required and a re-run of the script to complete. 
 
-- if Docker already installed, this one is a great option:
+### Online Installer (--install --start)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install --start
 ```
-- if No Docker, this one is for you. Copy & paste below. After it finishes arrow up, (add --start to the end) and re-run. Why not use the above command it has both commands? **Installing Docker first time** when  adding your $USER to the Docker Group will require a login and logout to see relfect the changes. Thus, --install completes the dependency and docker requirements and --start starts the Rancher install, so if you have Docker already installed, you would use the above options which uses, --install --start which verifies/checks, and then installs Rancher ;)
-- 
+**As noted above**, if you didn't have Docker installed, after the script finishes running, you will need to logout/login, arrow up and re-run the command again to finish up the install.
+
+### Online (--help)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install
+curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --help
 ```
 
 This will:
