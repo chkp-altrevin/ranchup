@@ -11,7 +11,7 @@ If you have docker installed it's ok, script will verify and install with consen
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install --start
 ```
-- if No Docker, this one is for you. Copy & paste below. After it finishes arrow up, (add --start to the end) and re-run. Why? Installing Docker first time while adding your user to the Docker Group will require a login and logout ;)
+- if No Docker, this one is for you. Copy & paste below. After it finishes arrow up, (add --start to the end) and re-run. Why not use the above command it has both commands? **Installing Docker first time** when  adding your $USER to the Docker Group will require a login and logout to see relfect the changes. Thus, --install completes the dependency and docker requirements and --start starts the Rancher install, so if you have Docker already installed, you would use the above options which uses, --install --start which verifies/checks, and then installs Rancher ;)
 - 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install
