@@ -11,7 +11,6 @@ If you don't have docker installed or even if you do have docker installed it's 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install --start
 ```
-**As noted above**, if you didn't have Docker installed, after the script finishes running, you will need to logout/login, arrow up and re-run the command again to finish up the install.
 
 ### Online (--help)
 ```bash
