@@ -1,12 +1,12 @@
 ## Important
 NOT a released version, there are some minor kinks working through. Welcome any feedback or thoughts. 
 
-## Known Issues
+## Things being added or fixed
 Listed by priority
 
-## Things to fix
-Listed by priority.
-## Things to add
+- add port overrides and defaults for --kiosk and --config
+- add custom file to match all flags
+- add Proxmox k3s provisioner
 
 ### Deploy to Proxmox --kiosk --k8s-proxmox 
 Most places you can deploy using Rancher which is awesome. You can also provision existing or new Kubernetes regardless of what and where.
