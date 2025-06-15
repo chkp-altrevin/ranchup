@@ -4,7 +4,7 @@ NOT a released version, there are some minor kinks working through. Welcome any 
 ## Things being added or fixed
 Listed by priority
 
-- add port overrides and defaults for --kiosk and --config
+- add port overrides and defaults for --kiosk and --config (example -p 8080:80 -p 8443:443 -p 6443:6443) 
 - add custom file to match all flags
 - add Proxmox k3s provisioner
 
