@@ -55,8 +55,8 @@
 
 1. **Run the deployment helper:**
    ```bash
-   chmod +x k3s_deployment_helper.sh
-   ./k3s_deployment_helper.sh
+   chmod +x k3s_deploy_helper.sh
+   ./k3s_deploy_helper.sh
    ```
 
 2. **Follow the prompts** to configure your cluster
