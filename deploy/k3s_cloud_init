@@ -1,0 +1,399 @@
+#cloud-config
+# Enhanced K3s Master Node Bootstrap Script
+# Production-ready with monitoring, backup, and security features
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - htop
+  - net-tools
+  - unzip
+  - jq
+  - iotop
+  - nethogs
+  - fail2ban
+  - ufw
+  - rsync
+  - cron
+  - logrotate
+
+users:
+  - name: k3s
+    system: true
+    shell: /bin/false
+    home: /var/lib/k3s
+    create_home: true
+  - name: k3sadmin
+    gecos: "K3s Administrator"
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    groups: users,admin
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... # Replace with your SSH public key
+
+write_files:
+  # Enhanced K3s configuration
+  - path: /etc/rancher/k3s/config.yaml
+    content: |
+      cluster-init: true
+      disable:
+        - traefik
+      datastore-endpoint: "etcd"
+      kubelet-arg:
+        - "max-pods=250"
+        - "node-labels=node-role=master"
+        - "node-labels=node-type=control-plane"
+      kube-apiserver-arg:
+        - "default-not-ready-toleration-seconds=30"
+        - "default-unreachable-toleration-seconds=30"
+        - "audit-log-path=/var/log/k3s-audit.log"
+        - "audit-log-maxage=30"
+        - "audit-log-maxbackup=3"
+        - "audit-log-maxsize=100"
+      kube-controller-manager-arg:
+        - "node-monitor-period=5s"
+        - "node-monitor-grace-period=20s"
+        - "pod-eviction-timeout=30s"
+      write-kubeconfig-mode: "0644"
+      tls-san:
+        - "localhost"
+        - "127.0.0.1"
+        - "K3S_MASTER_HOSTNAME"  # Will be replaced during boot
+    permissions: '0600'
+    owner: root:root
+
+  # Backup script for k3s
+  - path: /usr/local/bin/k3s-backup.sh
+    content: |
+      #!/bin/bash
+      BACKUP_DIR="/var/backups/k3s"
+      DATE=$(date +%Y%m%d_%H%M%S)
+      
+      mkdir -p $BACKUP_DIR
+      
+      echo "Starting k3s backup at $(date)"
+      
+      # Backup etcd datastore
+      k3s etcd-snapshot save --etcd-snapshot-dir $BACKUP_DIR k3s-snapshot-$DATE
+      
+      # Backup configuration files
+      tar -czf $BACKUP_DIR/k3s-config-$DATE.tar.gz \
+        /etc/rancher/k3s/ \
+        /var/lib/rancher/k3s/server/manifests/ \
+        2>/dev/null
+      
+      # Keep only last 7 days of backups
+      find $BACKUP_DIR -name "k3s-*" -mtime +7 -delete
+      
+      echo "Backup completed at $(date)"
+      ls -la $BACKUP_DIR/
+    permissions: '0755'
+    owner: root:root
+
+  # Cluster health check script
+  - path: /usr/local/bin/k3s-health-check.sh
+    content: |
+      #!/bin/bash
+      LOGFILE="/var/log/k3s-health.log"
+      
+      log() {
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a $LOGFILE
+      }
+      
+      log "Starting health check"
+      
+      # Check k3s service
+      if ! systemctl is-active --quiet k3s; then
+        log "ERROR: k3s service is not running"
+        systemctl restart k3s
+        exit 1
+      fi
+      
+      # Check API server
+      if ! kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes >/dev/null 2>&1; then
+        log "ERROR: Cannot connect to k3s API server"
+        exit 1
+      fi
+      
+      # Check node status
+      NOT_READY=$(kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes | grep -c "NotReady" || true)
+      if [ "$NOT_READY" -gt 0 ]; then
+        log "WARNING: $NOT_READY nodes are NotReady"
+      fi
+      
+      # Check system resources
+      MEMORY_USAGE=$(free | grep Mem | awk '{printf "%.0f", $3/$2 * 100.0}')
+      DISK_USAGE=$(df /var/lib/rancher | tail -1 | awk '{print $5}' | sed 's/%//')
+      
+      if [ "$MEMORY_USAGE" -gt 90 ]; then
+        log "WARNING: High memory usage: ${MEMORY_USAGE}%"
+      fi
+      
+      if [ "$DISK_USAGE" -gt 85 ]; then
+        log "WARNING: High disk usage: ${DISK_USAGE}%"
+      fi
+      
+      log "Health check completed - Memory: ${MEMORY_USAGE}%, Disk: ${DISK_USAGE}%"
+    permissions: '0755'
+    owner: root:root
+
+  # Cluster status dashboard script
+  - path: /usr/local/bin/k3s-dashboard.sh
+    content: |
+      #!/bin/bash
+      clear
+      echo "=============================================="
+      echo "         K3s Cluster Dashboard"
+      echo "=============================================="
+      echo "Cluster: $(hostname)"
+      echo "Time: $(date)"
+      echo "Uptime: $(uptime -p)"
+      echo ""
+      
+      echo "=== Cluster Nodes ==="
+      kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes -o wide
+      echo ""
+      
+      echo "=== System Pods ==="
+      kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get pods -n kube-system
+      echo ""
+      
+      echo "=== Resource Usage ==="
+      kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml top nodes 2>/dev/null || echo "Metrics server not available"
+      echo ""
+      
+      echo "=== Recent Events ==="
+      kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get events --sort-by='.lastTimestamp' | tail -10
+      echo ""
+      
+      echo "=== System Resources ==="
+      echo "Memory:"
+      free -h
+      echo ""
+      echo "Disk:"
+      df -h /var/lib/rancher
+      echo ""
+      
+      echo "=== Network Connectivity ==="
+      echo "Master Node Token (for worker nodes):"
+      cat /var/lib/rancher/k3s/server/node-token 2>/dev/null | head -c 20 && echo "..."
+    permissions: '0755'
+    owner: root:root
+
+  # UFW firewall rules
+  - path: /usr/local/bin/setup-firewall.sh
+    content: |
+      #!/bin/bash
+      # Configure UFW for k3s
+      ufw --force reset
+      ufw default deny incoming
+      ufw default allow outgoing
+      
+      # SSH access
+      ufw allow 22/tcp
+      
+      # K3s API server
+      ufw allow 6443/tcp
+      
+      # K3s metrics server
+      ufw allow 10250/tcp
+      
+      # Flannel VXLAN
+      ufw allow 8472/udp
+      
+      # Allow internal cluster communication
+      ufw allow from 10.42.0.0/16
+      ufw allow from 10.43.0.0/16
+      
+      # NodePort services
+      ufw allow 30000:32767/tcp
+      
+      ufw --force enable
+      ufw status verbose
+    permissions: '0755'
+    owner: root:root
+
+  # Enhanced kubectl aliases and functions
+  - path: /etc/profile.d/k3s-enhanced.sh
+    content: |
+      #!/bin/bash
+      export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+      
+      # Basic aliases
+      alias k=kubectl
+      alias kgp='kubectl get pods'
+      alias kgs='kubectl get services'
+      alias kgn='kubectl get nodes'
+      alias kgd='kubectl get deployments'
+      alias kga='kubectl get all'
+      
+      # Advanced aliases
+      alias kdp='kubectl describe pod'
+      alias kdn='kubectl describe node'
+      alias kds='kubectl describe service'
+      alias klogs='kubectl logs'
+      alias kexec='kubectl exec -it'
+      alias kport='kubectl port-forward'
+      
+      # Cluster management
+      alias k3s-status='/usr/local/bin/k3s-dashboard.sh'
+      alias k3s-backup='/usr/local/bin/k3s-backup.sh'
+      alias k3s-health='/usr/local/bin/k3s-health-check.sh'
+      
+      # Useful functions
+      kpods() {
+        kubectl get pods -o wide ${1:+-n $1}
+      }
+      
+      klogs-tail() {
+        kubectl logs -f ${1} ${2:+-n $2}
+      }
+      
+      # Enable kubectl completion
+      if command -v kubectl > /dev/null 2>&1; then
+        source <(kubectl completion bash)
+        complete -F __start_kubectl k
+      fi
+    permissions: '0755'
+    owner: root:root
+
+  # Crontab entries
+  - path: /etc/cron.d/k3s-maintenance
+    content: |
+      # K3s cluster maintenance tasks
+      
+      # Health check every 5 minutes
+      */5 * * * * root /usr/local/bin/k3s-health-check.sh
+      
+      # Daily backup at 2 AM
+      0 2 * * * root /usr/local/bin/k3s-backup.sh
+      
+      # Weekly log rotation
+      0 0 * * 0 root /usr/sbin/logrotate /etc/logrotate.d/k3s
+      
+      # Clean up old container images weekly
+      0 3 * * 0 root k3s crictl rmi --prune
+    permissions: '0644'
+    owner: root:root
+
+  # Log rotation configuration
+  - path: /etc/logrotate.d/k3s
+    content: |
+      /var/log/k3s*.log {
+        daily
+        missingok
+        rotate 14
+        compress
+        delaycompress
+        notifempty
+        copytruncate
+        postrotate
+          systemctl reload k3s
+        endscript
+      }
+    permissions: '0644'
+    owner: root:root
+
+bootcmd:
+  - modprobe br_netfilter
+  - modprobe overlay
+  - modprobe ip_vs
+  - modprobe ip_vs_rr
+  - modprobe ip_vs_wrr
+  - modprobe ip_vs_sh
+
+runcmd:
+  # System preparation
+  - echo 'net.bridge.bridge-nf-call-iptables = 1' >> /etc/sysctl.conf
+  - echo 'net.bridge.bridge-nf-call-ip6tables = 1' >> /etc/sysctl.conf
+  - echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf
+  - echo 'net.ipv4.conf.all.forwarding = 1' >> /etc/sysctl.conf
+  - echo 'fs.inotify.max_user_watches = 524288' >> /etc/sysctl.conf
+  - echo 'fs.inotify.max_user_instances = 512' >> /etc/sysctl.conf
+  - sysctl -p
+  
+  # Load kernel modules
+  - echo 'br_netfilter' >> /etc/modules-load.d/k3s.conf
+  - echo 'overlay' >> /etc/modules-load.d/k3s.conf
+  - echo 'ip_vs' >> /etc/modules-load.d/k3s.conf
+  - echo 'ip_vs_rr' >> /etc/modules-load.d/k3s.conf
+  - echo 'ip_vs_wrr' >> /etc/modules-load.d/k3s.conf
+  - echo 'ip_vs_sh' >> /etc/modules-load.d/k3s.conf
+  
+  # Create directories
+  - mkdir -p /etc/rancher/k3s /var/lib/rancher/k3s /var/backups/k3s /var/log/k3s
+  
+  # Set hostname and update TLS SAN
+  - HOSTNAME=$(hostname -f)
+  - sed -i "s/K3S_MASTER_HOSTNAME/$HOSTNAME/g" /etc/rancher/k3s/config.yaml
+  
+  # Set up firewall
+  - /usr/local/bin/setup-firewall.sh
+  
+  # Install k3s
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--config /etc/rancher/k3s/config.yaml" sh -
+  
+  # Wait for k3s to be ready
+  - sleep 30
+  - until kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes | grep -q "Ready"; do echo "Waiting for k3s..."; sleep 10; done
+  
+  # Install additional tools
+  - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  
+  # Install k9s
+  - |
+    K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | jq -r .tag_name)
+    wget -O /tmp/k9s.tar.gz "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz"
+    tar -xzf /tmp/k9s.tar.gz -C /tmp
+    mv /tmp/k9s /usr/local/bin/
+    rm /tmp/k9s.tar.gz
+  
+  # Install metrics server
+  - kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  
+  # Create initial backup
+  - sleep 60
+  - /usr/local/bin/k3s-backup.sh
+  
+  # Display cluster status
+  - echo "K3s master node setup completed!"
+  - /usr/local/bin/k3s-dashboard.sh
+
+final_message: |
+  Enhanced K3s Master Node is ready!
+  
+  🚀 Quick Start Commands:
+  - k3s-status    # Show cluster dashboard
+  - k3s-health    # Run health check
+  - k3s-backup    # Create backup
+  - k9s           # Interactive cluster management
+  
+  📊 Monitoring & Maintenance:
+  - Health checks run every 5 minutes
+  - Daily backups at 2 AM
+  - Logs in /var/log/k3s-health.log
+  - Backups in /var/backups/k3s/
+  
+  🔐 Security:
+  - UFW firewall configured
+  - SSH key authentication
+  - Audit logging enabled
+  
+  🔗 Worker Node Setup:
+  Master IP: $(ip route get 8.8.8.8 | awk 'NR==1 {print $7}')
+  Node Token: $(cat /var/lib/rancher/k3s/server/node-token)
+  
+  🛠️ Next Steps:
+  1. Replace SSH key in worker node config
+  2. Update K3S_MASTER_IP and K3S_NODE_TOKEN in worker config
+  3. Set NODE_ROLE for each worker (e.g., "worker", "gpu-worker")
+  4. Deploy your applications!
+
+power_state:
+  mode: reboot
+  delay: "+1"
+  message: "Rebooting after enhanced k3s master setup"
