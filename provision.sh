@@ -1408,7 +1408,7 @@ start_rancher() {
     fi
     
     # Port mappings
-    docker_cmd="$docker_cmd -p 80:80 -p 443:443 -p 6443:6443"
+    docker_cmd="$docker_cmd -p 8080:80 -p 8443:443 -p 6443:6443"
     
     # ACME support
     if [[ -n "$ACME_DOMAIN" ]]; then
