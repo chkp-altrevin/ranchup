@@ -7,11 +7,16 @@ RanchUp is a lightweight shell-based lifecycle manager to automate your **Ranche
 ## 🚀 Quick Start
 If you don't have docker installed or even if you do have docker installed it's ok, script will verify and install with consent. Keep in mind, if you do not have docker installed a logout/login are required and a re-run of the script to complete. **tldr;** no docker, run, logout/login, arrow up re-run, done.
 
-### Online Installer (--install --start)
+### Online Install with (--install --start)
+Install using flags in the cli.
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --install --start
 ```
-
+### Online Install with kiosk menu (--kiosk)
+Install using the Kiosk guided menu.
+```bash
+curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --kiosk
+```
 ### Online (--help)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chkp-altrevin/ranchup/main/provision.sh -o provision.sh -f && chmod +x provision.sh && ./provision.sh --help
